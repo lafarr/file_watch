@@ -18,13 +18,13 @@ class unique_fd {
 		explicit unique_fd(int fd = -1) noexcept : fd_(fd) {}
 
 		unique_fd(const unique_fd&) = delete;
-		unique_fd& operator=(const unique_fd&) = delete;
+		auto operator=(const unique_fd&) -> unique_fd& = delete;
 
 		unique_fd(unique_fd&& other) noexcept : fd_(other.fd_) {
 			other.fd_ = -1;
 		}
 
-		unique_fd& operator=(unique_fd&& other) noexcept {
+		auto operator=(unique_fd&& other) noexcept -> unique_fd& {
 			if (this != &other) {
 				reset();
 				fd_ = other.fd_;
@@ -35,10 +35,10 @@ class unique_fd {
 
 		~unique_fd() { reset(); }
 
-		[[nodiscard]] int get() const noexcept { return fd_; }
+		[[nodiscard]] auto get() const noexcept -> int { return fd_; }
 		[[nodiscard]] explicit operator bool() const noexcept { return fd_ >= 0; }
 
-		void reset(int new_fd = -1) noexcept {
+		auto reset(int new_fd = -1) noexcept -> void {
 			if (fd_ >= 0) {
 				close(fd_);
 			}
@@ -50,13 +50,14 @@ class unique_fd {
 };
 
 struct parsed_event {
-    std::string_view name{};
+    std::string_view name;
     std::size_t total_size{};
     inotify_event header{};
 };
 
-[[nodiscard]] std::expected<parsed_event, std::string_view>
-parse_event(std::span<const std::byte> bytes, std::size_t offset)
+
+[[nodiscard]] auto parse_event(std::span<const std::byte> bytes, std::size_t offset) 
+	-> std::expected<parsed_event, std::string_view>
 {
     if (offset > bytes.size()) {
         return std::unexpected("offset out of range");
@@ -81,6 +82,7 @@ parse_event(std::span<const std::byte> bytes, std::size_t offset)
     auto name_bytes =
         bytes.subspan(offset + sizeof(inotify_event), result.header.len);
 
+	// NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     auto* name_ptr = reinterpret_cast<const char*>(name_bytes.data());
     auto name_len =
         result.header.len > 0 ? strnlen(name_ptr, result.header.len) : 0;
@@ -89,20 +91,21 @@ parse_event(std::span<const std::byte> bytes, std::size_t offset)
     return result;
 }
 
-[[nodiscard]] bool is_target_event(const parsed_event& ev)
+[[nodiscard]] auto is_target_event(const parsed_event& ev) -> bool
 {
-    return ev.name == target_name &&
-           ((ev.header.mask & IN_CLOSE_WRITE) ||
-            (ev.header.mask & IN_MOVED_TO) ||
-            (ev.header.mask & IN_CREATE));
+	return ev.name == target_name && (
+			static_cast<bool>(ev.header.mask & IN_CLOSE_WRITE) ||
+			static_cast<bool>(ev.header.mask & IN_MOVED_TO) ||
+			static_cast<bool>(ev.header.mask & IN_CREATE)
+			);
 }
 
-[[nodiscard]] int restart_keyd()
+[[nodiscard]] auto restart_keyd() -> int
 {
     return std::system("systemctl restart keyd");
 }
 
-int main()
+auto main() -> int
 {
     unique_fd inotify_fd{inotify_init1(IN_CLOEXEC)};
     if (!inotify_fd) {
@@ -116,6 +119,7 @@ int main()
         watched_dir.data(),
         IN_CLOSE_WRITE | IN_MOVED_TO | IN_CREATE
     );
+
     if (wd < 0) {
         std::println(std::cerr, "inotify_add_watch failed: {}",
                      std::strerror(errno));

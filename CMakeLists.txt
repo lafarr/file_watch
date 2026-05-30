@@ -9,6 +9,16 @@ set(CMAKE_C_EXTENSIONS ON)
 set(CMAKE_CXX_STANDARD 26)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+find_program(CLANG_TIDY clang-tidy REQUIRED)
+
+set(CMAKE_CXX_CLANG_TIDY
+    ${CLANG_TIDY}
+	--use-color
+    --extra-arg=-Wno-unknown-warning-option
+    --warnings-as-errors=*
+    --header-filter=${CMAKE_SOURCE_DIR}/.*
+)
+
 add_library(settings INTERFACE)
 
 target_compile_options(settings INTERFACE
